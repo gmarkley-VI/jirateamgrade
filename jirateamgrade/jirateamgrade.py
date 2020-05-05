@@ -22,6 +22,9 @@ def connect_jira(log, jira_server, jira_user, jira_password):
 
 # Defines a function for scoring comments in Jira
 def scoreComment(text):
+    #counters
+    noun = 0
+    verb = 0
 
     # Count all sentences from all documents
     sentences = nltk.sent_tokenize(text)
@@ -30,14 +33,11 @@ def scoreComment(text):
     tokens = nltk.word_tokenize(text)
     tagged_words = nltk.pos_tag(tokens)
 
-    # Count nouns
-    freqs = defaultdict(int)
-
     for type in tagged_words:
         if 'NN' in type[1]:
-            freqs['noun'] += 1
+            noun += 1
         if 'VB' in type[1]:
-            freqs['verb'] += 1
+            verb += 1
 
 # Count Entities
     entities = nltk.chunk.ne_chunk(tagged_words, binary=True)
@@ -47,7 +47,7 @@ def scoreComment(text):
         if t.label() == 'NE':
             named_entities.append(t)
 
-    score = len(named_entities)*10 + len(sentences)*2.5 + freqs.get('noun') + freqs.get('verb')
+    score = len(named_entities)*10 + len(sentences)*2.5 + noun + verb
 
     return score
 
@@ -61,11 +61,14 @@ def main():
     # create a connection object, jc
     jc = connect_jira(log, 'https://issues.redhat.com', username, passwd)
 
-    issue = jc.issue('SPLAT-8').fields.description
+    issues = jc.search_issues("project = WINC AND status in (\"In Progress\", \"Code Review\")AND(sprint in openSprints())")
 
-    #TODO convert to comments.
-    print(issue)
-    print(scoreComment(issue))
+    for result in issues:
+        issue = jc.issue(result.id)
+        comments = issue.fields.comment.comments
+        comment = comments[-1]
+        print(result)
+        print(scoreComment(comment.body))
 
 if __name__ == "__main__":
     main()
