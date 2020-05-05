@@ -63,6 +63,7 @@ def main():
 
     issue = jc.issue('SPLAT-8').fields.description
 
+    #TODO convert to comments.
     print(issue)
     print(scoreComment(issue))
 
