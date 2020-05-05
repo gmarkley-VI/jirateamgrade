@@ -1,6 +1,6 @@
 from jira.client import JIRA
 from pprint import pprint as print
-from collections import defaultdict, Counter
+import numpy as np
 import nltk
 import logging
 import os
@@ -61,14 +61,27 @@ def main():
     # create a connection object, jc
     jc = connect_jira(log, 'https://issues.redhat.com', username, passwd)
 
-    issues = jc.search_issues("project = WINC AND status in (\"In Progress\", \"Code Review\")AND(sprint in openSprints())")
+    issues = jc.search_issues("project = WINC AND (sprint in openSprints())")
+
+    usercomments = {}
 
     for result in issues:
         issue = jc.issue(result.id)
         comments = issue.fields.comment.comments
-        comment = comments[-1]
-        print(result)
-        print(scoreComment(comment.body))
+        for comment in comments:
+            if comment.author.name not in usercomments:
+                usercomments[comment.author.name] = {'score': []}
+            usercomments[comment.author.name]['score'].append(scoreComment(comment.body))
+
+    for key in usercomments:
+        scores = usercomments[key]['score']
+        print(key)
+        print(np.max(scores))
+
+
+    #print(usercomments)
+
+            #grade.append([comment.author.displayName, scoreComment(comment.body)])
 
 if __name__ == "__main__":
     main()
