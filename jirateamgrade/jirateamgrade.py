@@ -3,7 +3,7 @@ from pprint import pprint as print
 import numpy as np
 import nltk
 import logging
-import os
+import os, re
 
 
 # Defines a function for connecting to Jira
@@ -25,6 +25,13 @@ def score_comment(text):
     #counters
     noun = 0
     verb = 0
+    codecount = 0
+
+    #remove code but give points for it
+    #search for {code} and add points here
+    if re.search(r'{code}', text):
+        text = re.sub(r'{code:(.|\r|\n)*{code}', '', text)
+        codecount = text.count('{code')
 
     # Count all sentences from all documents
     sentences = nltk.sent_tokenize(text)
@@ -39,7 +46,7 @@ def score_comment(text):
         if 'VB' in type[1]:
             verb += 1
 
-# Count Entities
+    # Count Entities
     entities = nltk.chunk.ne_chunk(tagged_words, binary=True)
     named_entities = []
 
@@ -47,7 +54,11 @@ def score_comment(text):
         if t.label() == 'NE':
             named_entities.append(t)
 
-    score = len(named_entities)*10 + len(sentences)*2.5 + noun + verb
+    score = len(named_entities)*10 + len(sentences)*2.5 + noun + verb +codecount*5
+
+    #For cases where extra code and things add to the count
+    if score > 100:
+        return 100
 
     return score
 
@@ -81,15 +92,18 @@ def main():
         comments = issue.fields.comment.comments
         for comment in comments:
             if comment.author.name not in usercomments:
-                usercomments[comment.author.name] = {'comments': {'id': [], 'score': [], 'body':[]}}
+                usercomments[comment.author.name] = {'comments': {'id': [], 'score': [], 'body':[], 'date': []}}
             usercomments[comment.author.name]['comments']['id'].insert(0, comment.id)
             usercomments[comment.author.name]['comments']['score'].insert(0, score_comment(comment.body))
             usercomments[comment.author.name]['comments']['body'].insert(0, comment.body)
+            usercomments[comment.author.name]['comments']['date'].insert(0, comment.updated)
 
     for user in usercomments:
         user_stats(usercomments[user])
+        print(user)
+        print(usercomments[user]['comments']['stats'])
 
-    print(usercomments)
+    #print(usercomments)
 
 if __name__ == "__main__":
     main()
