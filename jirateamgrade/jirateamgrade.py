@@ -21,7 +21,7 @@ def connect_jira(log, jira_server, jira_user, jira_password):
         return None
 
 # Defines a function for scoring comments in Jira
-def scoreComment(text):
+def score_comment(text):
     #counters
     noun = 0
     verb = 0
@@ -51,6 +51,16 @@ def scoreComment(text):
 
     return score
 
+def user_stats(dict):
+    a = dict['comments']['score']
+
+    dict['comments']['stats'] = {}
+    dict['comments']['stats']['avarage'] = np.average(a)
+    dict['comments']['stats']['max'] = {'value': np.max(a), 'body': dict['comments']['body'][a.index(np.max(a))]}
+    dict['comments']['stats']['min'] = {'value': np.min(a), 'body': dict['comments']['body'][a.index(np.min(a))]}
+
+    return
+
 def main():
     # create logger
     log = logging.getLogger(__name__)
@@ -65,6 +75,7 @@ def main():
 
     usercomments = {}
 
+    # format dict based on results from comments
     for result in issues:
         issue = jc.issue(result.id)
         comments = issue.fields.comment.comments
@@ -72,22 +83,13 @@ def main():
             if comment.author.name not in usercomments:
                 usercomments[comment.author.name] = {'comments': {'id': [], 'score': [], 'body':[]}}
             usercomments[comment.author.name]['comments']['id'].insert(0, comment.id)
-            usercomments[comment.author.name]['comments']['score'].insert(0, scoreComment(comment.body))
+            usercomments[comment.author.name]['comments']['score'].insert(0, score_comment(comment.body))
             usercomments[comment.author.name]['comments']['body'].insert(0, comment.body)
 
+    for user in usercomments:
+        user_stats(usercomments[user])
+
     print(usercomments)
-
-    # for key in usercomments:
-    #     scores = usercomments[key]['score']
-    #     print(key)
-    #     print(np.max(scores))
-    #     print(np.average(scores))
-    #     print(np.min(scores))
-
-
-    #print(usercomments)
-
-            #grade.append([comment.author.displayName, scoreComment(comment.body)])
 
 if __name__ == "__main__":
     main()
