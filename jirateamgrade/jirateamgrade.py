@@ -61,7 +61,7 @@ def main():
     # create a connection object, jc
     jc = connect_jira(log, 'https://issues.redhat.com', username, passwd)
 
-    issues = jc.search_issues("project = WINC AND (sprint in openSprints())")
+    issues = jc.search_issues("project = WINC AND (sprint in openSprints()) AND assignee in (rgudimet)")
 
     usercomments = {}
 
@@ -70,13 +70,19 @@ def main():
         comments = issue.fields.comment.comments
         for comment in comments:
             if comment.author.name not in usercomments:
-                usercomments[comment.author.name] = {'score': []}
-            usercomments[comment.author.name]['score'].append(scoreComment(comment.body))
+                usercomments[comment.author.name] = {'comments': {'id': [], 'score': [], 'body':[]}}
+            usercomments[comment.author.name]['comments']['id'].insert(0, comment.id)
+            usercomments[comment.author.name]['comments']['score'].insert(0, scoreComment(comment.body))
+            usercomments[comment.author.name]['comments']['body'].insert(0, comment.body)
 
-    for key in usercomments:
-        scores = usercomments[key]['score']
-        print(key)
-        print(np.max(scores))
+    print(usercomments)
+
+    # for key in usercomments:
+    #     scores = usercomments[key]['score']
+    #     print(key)
+    #     print(np.max(scores))
+    #     print(np.average(scores))
+    #     print(np.min(scores))
 
 
     #print(usercomments)
