@@ -71,7 +71,7 @@ def main():
     # create a connection object, jc
     jc = connect_jira(log, 'https://issues.redhat.com', username, passwd)
 
-    issues = jc.search_issues("project = WINC AND (sprint in openSprints()) AND assignee in (rgudimet)")
+    issues = jc.search_issues("project = WINC AND (sprint in openSprints())")
 
     usercomments = {}
 
