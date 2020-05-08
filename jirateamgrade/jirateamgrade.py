@@ -1,9 +1,10 @@
+import textstat as textstat
 from jira.client import JIRA
 from pprint import pprint as print
 import numpy as np
 import nltk
 import logging
-import os
+import os, re
 
 
 # Defines a function for connecting to Jira
@@ -23,8 +24,20 @@ def connect_jira(log, jira_server, jira_user, jira_password):
 # Defines a function for scoring comments in Jira
 def score_comment(text):
     #counters
-    noun = 0
-    verb = 0
+    nouncount = 0
+
+    #remove code but give points for it
+    #search for {code} and add points here
+    codecount = text.count('{code')
+    text = re.sub(r'{code:(.|\r|\n)*{code}', '', text)
+
+    #Check for link to PR
+    linktopr = text.count('https://github.com')
+    text = re.sub(r'https://github.com.*/pull', '', text)
+
+    # Check for links to things
+    linktothings = text.count('https://')
+    text = re.sub(r'https?:\/\/.*[\r\n]*', '', text)
 
     # Count all sentences from all documents
     sentences = nltk.sent_tokenize(text)
@@ -35,11 +48,9 @@ def score_comment(text):
 
     for type in tagged_words:
         if 'NN' in type[1]:
-            noun += 1
-        if 'VB' in type[1]:
-            verb += 1
+            nouncount += 1
 
-# Count Entities
+    # Count Entities
     entities = nltk.chunk.ne_chunk(tagged_words, binary=True)
     named_entities = []
 
@@ -47,7 +58,14 @@ def score_comment(text):
         if t.label() == 'NE':
             named_entities.append(t)
 
-    score = len(named_entities)*10 + len(sentences)*2.5 + noun + verb
+    # Check Complexity of language grade level
+    complexity = textstat.text_standard(text, float_output=True)
+
+    score = len(named_entities)*10 + len(sentences)*2.5 + nouncount + codecount*5 + linktopr*10 + linktothings*5 + complexity
+
+    #For cases where extra code and things add to the count
+    if score > 100:
+        return 100
 
     return score
 
@@ -62,6 +80,7 @@ def user_stats(dict):
     return
 
 def main():
+    teamscores = []
     # create logger
     log = logging.getLogger(__name__)
 
@@ -81,14 +100,17 @@ def main():
         comments = issue.fields.comment.comments
         for comment in comments:
             if comment.author.name not in usercomments:
-                usercomments[comment.author.name] = {'comments': {'id': [], 'score': [], 'body':[]}}
+                usercomments[comment.author.name] = {'comments': {'id': [], 'score': [], 'body':[], 'date': []}}
             usercomments[comment.author.name]['comments']['id'].insert(0, comment.id)
             usercomments[comment.author.name]['comments']['score'].insert(0, score_comment(comment.body))
             usercomments[comment.author.name]['comments']['body'].insert(0, comment.body)
+            usercomments[comment.author.name]['comments']['date'].insert(0, comment.updated)
 
     for user in usercomments:
         user_stats(usercomments[user])
+        teamscores.insert(0, [user, usercomments[user]['comments']['stats']['avarage']])
 
+    print(sorted(teamscores, key=lambda x: x[1]))
     print(usercomments)
 
 if __name__ == "__main__":

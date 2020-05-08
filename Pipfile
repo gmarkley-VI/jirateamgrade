@@ -9,6 +9,7 @@ verify_ssl = true
 jira = "*"
 nltk = "*"
 numpy = "*"
+textstat = "*"
 
 [requires]
 python_version = "3.7"
