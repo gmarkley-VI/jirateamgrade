@@ -1,3 +1,4 @@
+import textstat as textstat
 from jira.client import JIRA
 from pprint import pprint as print
 import numpy as np
@@ -23,15 +24,20 @@ def connect_jira(log, jira_server, jira_user, jira_password):
 # Defines a function for scoring comments in Jira
 def score_comment(text):
     #counters
-    noun = 0
-    verb = 0
-    codecount = 0
+    nouncount = 0
 
     #remove code but give points for it
     #search for {code} and add points here
-    if re.search(r'{code}', text):
-        text = re.sub(r'{code:(.|\r|\n)*{code}', '', text)
-        codecount = text.count('{code')
+    codecount = text.count('{code')
+    text = re.sub(r'{code:(.|\r|\n)*{code}', '', text)
+
+    #Check for link to PR
+    linktopr = text.count('https://github.com')
+    text = re.sub(r'https://github.com.*/pull', '', text)
+
+    # Check for links to things
+    linktothings = text.count('https://')
+    text = re.sub(r'https?:\/\/.*[\r\n]*', '', text)
 
     # Count all sentences from all documents
     sentences = nltk.sent_tokenize(text)
@@ -42,9 +48,7 @@ def score_comment(text):
 
     for type in tagged_words:
         if 'NN' in type[1]:
-            noun += 1
-        if 'VB' in type[1]:
-            verb += 1
+            nouncount += 1
 
     # Count Entities
     entities = nltk.chunk.ne_chunk(tagged_words, binary=True)
@@ -54,7 +58,10 @@ def score_comment(text):
         if t.label() == 'NE':
             named_entities.append(t)
 
-    score = len(named_entities)*10 + len(sentences)*2.5 + noun + verb +codecount*5
+    # Check Complexity of language grade level
+    complexity = textstat.text_standard(text, float_output=True)
+
+    score = len(named_entities)*10 + len(sentences)*2.5 + nouncount + codecount*5 + linktopr*10 + linktothings*5 + complexity
 
     #For cases where extra code and things add to the count
     if score > 100:
@@ -73,6 +80,7 @@ def user_stats(dict):
     return
 
 def main():
+    teamscores = []
     # create logger
     log = logging.getLogger(__name__)
 
@@ -100,10 +108,10 @@ def main():
 
     for user in usercomments:
         user_stats(usercomments[user])
-        print(user)
-        print(usercomments[user]['comments']['stats'])
+        teamscores.insert(0, [user, usercomments[user]['comments']['stats']['avarage']])
 
-    #print(usercomments)
+    print(sorted(teamscores, key=lambda x: x[1]))
+    print(usercomments)
 
 if __name__ == "__main__":
     main()
